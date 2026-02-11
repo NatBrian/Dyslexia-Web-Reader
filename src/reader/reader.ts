@@ -243,16 +243,22 @@ ctlGuided.addEventListener('click', async () => {
     }
 });
 
-async function generatePlan() {
+async function generatePlan(forceRegenerate = false) {
     chunkTitle.textContent = 'Generating reading plan…';
     chunkText.innerHTML = '<div class="spinner"></div>';
     btnSimplify.disabled = true;
 
     try {
-        const resp = await sendMessage<ReadingPlan>({ type: 'GENERATE_READING_PLAN', articleId });
+        console.log(`[DRA:reader] Requesting reading plan for ${articleId}, force=${forceRegenerate}`);
+        const resp = await sendMessage<ReadingPlan>({
+            type: 'GENERATE_READING_PLAN',
+            articleId,
+            forceRegenerate,
+        });
         if (resp.ok && resp.data) {
             readingPlan = resp.data;
             currentChunkIndex = 0;
+            console.log(`[DRA:reader] Received plan with ${readingPlan.chunks.length} chunks`);
             displayChunk(0);
         } else {
             chunkTitle.textContent = 'Error';
@@ -289,6 +295,14 @@ function displayChunk(index: number) {
 
 guidedPrev.addEventListener('click', () => displayChunk(currentChunkIndex - 1));
 guidedNext.addEventListener('click', () => displayChunk(currentChunkIndex + 1));
+
+const guidedRegen = $('#guided-regen') as HTMLButtonElement;
+guidedRegen.addEventListener('click', async () => {
+    readingPlan = null;
+    currentChunkIndex = 0;
+    simplifiedChunks.clear();
+    await generatePlan(true);
+});
 
 // ─── Simplify ───────────────────────────────────────────────────────
 
