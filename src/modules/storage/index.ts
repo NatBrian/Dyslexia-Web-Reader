@@ -7,11 +7,8 @@
 
 import type {
     Article, ReaderSettings, ReadingPlan, SimplifiedChunk,
-    GlossaryEntry, DEFAULT_SETTINGS,
+    GlossaryEntry,
 } from '@shared/types';
-
-// Re-export defaults so consumers don't need a second import
-export { DEFAULT_SETTINGS } from '@shared/types';
 
 // ─── Settings (sync) ────────────────────────────────────────────────
 
@@ -47,8 +44,8 @@ async function getDefaults(): Promise<ReaderSettings> {
 export async function getApiConfig(): Promise<{ apiKey: string; model: string }> {
     const result = await chrome.storage.sync.get(['openRouterApiKey', 'openRouterModel']);
     return {
-        apiKey: result.openRouterApiKey || '',
-        model: result.openRouterModel || 'openrouter/auto',
+        apiKey: (result.openRouterApiKey as string) || '',
+        model: (result.openRouterModel as string) || 'openrouter/auto',
     };
 }
 
@@ -61,7 +58,7 @@ export async function saveApiConfig(apiKey: string, model: string): Promise<void
 export async function getCachedArticle(articleId: string): Promise<Article | null> {
     const key = `article_${articleId}`;
     const result = await chrome.storage.local.get(key);
-    return result[key] || null;
+    return (result[key] as Article) || null;
 }
 
 export async function setCachedArticle(article: Article): Promise<void> {
@@ -73,7 +70,7 @@ export async function setCachedArticle(article: Article): Promise<void> {
 export async function getCachedPlan(articleId: string): Promise<ReadingPlan | null> {
     const key = `plan_${articleId}`;
     const result = await chrome.storage.local.get(key);
-    return result[key] || null;
+    return (result[key] as ReadingPlan) || null;
 }
 
 export async function setCachedPlan(plan: ReadingPlan): Promise<void> {
@@ -85,7 +82,7 @@ export async function setCachedPlan(plan: ReadingPlan): Promise<void> {
 export async function getCachedSimplified(chunkId: string): Promise<SimplifiedChunk | null> {
     const key = `simplified_${chunkId}`;
     const result = await chrome.storage.local.get(key);
-    return result[key] || null;
+    return (result[key] as SimplifiedChunk) || null;
 }
 
 export async function setCachedSimplified(chunk: SimplifiedChunk): Promise<void> {
@@ -97,7 +94,7 @@ export async function setCachedSimplified(chunk: SimplifiedChunk): Promise<void>
 export async function getGlossary(articleId: string): Promise<GlossaryEntry[]> {
     const key = `glossary_${articleId}`;
     const result = await chrome.storage.local.get(key);
-    return result[key] || [];
+    return (result[key] as GlossaryEntry[]) || [];
 }
 
 export async function addGlossaryEntry(articleId: string, entry: GlossaryEntry): Promise<GlossaryEntry[]> {

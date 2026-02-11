@@ -1,7 +1,39 @@
-import { defineConfig, BuildOptions } from 'vite';
+import { defineConfig, Plugin } from 'vite';
 import { resolve } from 'path';
+import { renameSync, mkdirSync, existsSync, rmSync } from 'fs';
+
+/**
+ * Vite plugin that moves HTML files from dist/src/X/ to dist/X/
+ * after the build, so manifest.json paths work correctly.
+ */
+function moveHtmlPlugin(): Plugin {
+    return {
+        name: 'move-html-output',
+        closeBundle() {
+            const dist = resolve(__dirname, 'dist');
+            const srcDir = resolve(dist, 'src');
+            if (!existsSync(srcDir)) return;
+
+            const entries = ['popup', 'options', 'reader'];
+            for (const entry of entries) {
+                const srcHtml = resolve(srcDir, entry, `${entry}.html`);
+                const destDir = resolve(dist, entry);
+                const destHtml = resolve(destDir, `${entry}.html`);
+                if (existsSync(srcHtml)) {
+                    if (!existsSync(destDir)) mkdirSync(destDir, { recursive: true });
+                    renameSync(srcHtml, destHtml);
+                    console.log(`  Moved ${entry}.html → dist/${entry}/`);
+                }
+            }
+
+            // Clean up empty dist/src/ directory
+            try { rmSync(srcDir, { recursive: true, force: true }); } catch { }
+        },
+    };
+}
 
 export default defineConfig({
+    plugins: [moveHtmlPlugin()],
     resolve: {
         alias: {
             '@shared': resolve(__dirname, 'src/shared'),
@@ -13,6 +45,7 @@ export default defineConfig({
         outDir: 'dist',
         emptyOutDir: true,
         sourcemap: process.env.NODE_ENV === 'development' ? 'inline' : false,
+        target: 'es2022',
         rollupOptions: {
             input: {
                 background: resolve(__dirname, 'src/background/index.ts'),
@@ -23,7 +56,6 @@ export default defineConfig({
             },
             output: {
                 entryFileNames: (chunkInfo) => {
-                    // Place each entry in its own folder matching the input structure
                     if (chunkInfo.name === 'background') return 'background/index.js';
                     if (chunkInfo.name === 'content') return 'content/index.js';
                     if (chunkInfo.name === 'popup') return 'popup/popup.js';
@@ -33,11 +65,11 @@ export default defineConfig({
                 },
                 chunkFileNames: 'chunks/[name]-[hash].js',
                 assetFileNames: (assetInfo) => {
-                    if (assetInfo.name?.endsWith('.css')) {
-                        // Match CSS to its parent entry
-                        if (assetInfo.name.includes('popup')) return 'popup/popup.css';
-                        if (assetInfo.name.includes('options')) return 'options/options.css';
-                        if (assetInfo.name.includes('reader')) return 'reader/reader.css';
+                    if (assetInfo.names?.[0]?.endsWith('.css') || assetInfo.name?.endsWith('.css')) {
+                        const name = assetInfo.names?.[0] || assetInfo.name || '';
+                        if (name.includes('popup')) return 'popup/popup.css';
+                        if (name.includes('options')) return 'options/options.css';
+                        if (name.includes('reader')) return 'reader/reader.css';
                     }
                     return 'assets/[name][extname]';
                 },

@@ -30,14 +30,24 @@ onMessage(async (message: ExtMessage, sender): Promise<ExtResponse> => {
                 if (!tab?.id) return { ok: false, error: 'No active tab found' };
 
                 // Inject content script on-demand
-                const results = await chrome.scripting.executeScript({
+                await chrome.scripting.executeScript({
                     target: { tabId: tab.id },
                     files: ['content/index.js'],
                 });
 
-                // The content script returns the extracted article
-                // We need to message it after injection
-                const response = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_ARTICLE' });
+                // Retry with delay — the content script listener may not be registered yet
+                let response: any = null;
+                for (let attempt = 0; attempt < 3; attempt++) {
+                    await new Promise(r => setTimeout(r, 150));
+                    try {
+                        response = await chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_ARTICLE' });
+                        break;
+                    } catch {
+                        if (attempt === 2) {
+                            return { ok: false, error: 'Content script did not respond. Try reloading the page.' };
+                        }
+                    }
+                }
 
                 if (!response?.ok || !response.data) {
                     return { ok: false, error: response?.error || 'Failed to extract article' };
