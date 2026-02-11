@@ -1,0 +1,33 @@
+{
+    "manifest_version": 3,
+    "name": "Dyslexia Reading Assistant",
+    "version": "1.0.0",
+    "description": "Makes any web article easier to read with dyslexia-friendly layout, guided reading, AI simplification, and text-to-speech.",
+    "permissions": [
+        "activeTab",
+        "storage",
+        "scripting"
+    ],
+    "host_permissions": [
+        "https://openrouter.ai/*",
+        "https://api.elevenlabs.io/*"
+    ],
+    "background": {
+        "service_worker": "background/index.js",
+        "type": "module"
+    },
+    "action": {
+        "default_popup": "popup/popup.html",
+        "default_icon": {
+            "16": "icons/icon16.png",
+            "48": "icons/icon48.png",
+            "128": "icons/icon128.png"
+        }
+    },
+    "options_page": "options/options.html",
+    "icons": {
+        "16": "icons/icon16.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+    }
+}
