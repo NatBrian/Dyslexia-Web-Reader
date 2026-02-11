@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reader — Dyslexia Reading Assistant</title>
+    <link rel="stylesheet" href="reader.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- ═══ Top Toolbar ═══ -->
+    <div id="toolbar" class="toolbar">
+        <div class="toolbar-left">
+            <span class="toolbar-logo">📖 Reader</span>
+        </div>
+        <div class="toolbar-center">
+            <div class="toolbar-group" title="Font Size">
+                <label>Aa</label>
+                <input type="range" id="ctl-fontsize" min="12" max="32" step="1" value="18">
+            </div>
+            <div class="toolbar-group" title="Line Spacing">
+                <label>↕</label>
+                <input type="range" id="ctl-linespacing" min="1.2" max="3.0" step="0.1" value="1.8">
+            </div>
+            <div class="toolbar-group" title="Letter Spacing">
+                <label>A·B</label>
+                <input type="range" id="ctl-letterspacing" min="0" max="0.2" step="0.01" value="0.05">
+            </div>
+            <div class="toolbar-group" title="Line Width">
+                <label>⇔</label>
+                <input type="range" id="ctl-marginwidth" min="20" max="400" step="10" value="120">
+            </div>
+            <button id="ctl-theme" class="toolbar-btn" title="Toggle Theme">🌾</button>
+            <button id="ctl-dyslexic" class="toolbar-btn" title="OpenDyslexic Font">Dy</button>
+            <button id="ctl-ruler" class="toolbar-btn" title="Reading Ruler (J/K to navigate, Esc off)">📏</button>
+            <button id="ctl-guided" class="toolbar-btn" title="Guided Reading Mode">📑</button>
+        </div>
+        <div class="toolbar-right">
+            <button id="ctl-tts-play" class="toolbar-btn" title="Read Aloud">▶️</button>
+            <button id="ctl-tts-pause" class="toolbar-btn hidden" title="Pause">⏸️</button>
+            <button id="ctl-tts-stop" class="toolbar-btn hidden" title="Stop">⏹️</button>
+        </div>
+    </div>
+
+    <!-- ═══ Main Content Area ═══ -->
+    <div id="reader-root">
+        <!-- Loading state -->
+        <div id="loading" class="state-msg">
+            <div class="spinner"></div>
+            <p>Loading article…</p>
+        </div>
+
+        <!-- Error state -->
+        <div id="error" class="state-msg hidden">
+            <p class="error-icon">⚠️</p>
+            <p id="error-text">Something went wrong.</p>
+        </div>
+
+        <!-- Article content -->
+        <article id="article-content" class="hidden">
+            <header id="article-header">
+                <h1 id="article-title"></h1>
+                <p id="article-byline" class="byline"></p>
+            </header>
+            <div id="article-body"></div>
+        </article>
+
+        <!-- Guided Reading Panel -->
+        <div id="guided-panel" class="hidden">
+            <div class="guided-header">
+                <span id="guided-progress">Chunk 1 / 1</span>
+                <div class="guided-controls">
+                    <button id="guided-prev" class="btn btn-sm" disabled>← Prev</button>
+                    <button id="guided-next" class="btn btn-sm">Next →</button>
+                </div>
+            </div>
+
+            <div id="guided-chunk-display" class="guided-chunk">
+                <h3 id="chunk-title">Section</h3>
+                <div id="chunk-text"></div>
+            </div>
+
+            <div class="guided-actions">
+                <button id="btn-simplify" class="btn btn-accent">✨ Simplify this chunk</button>
+                <div id="simplify-toggle" class="hidden">
+                    <button id="btn-show-original" class="btn btn-sm active">Original</button>
+                    <button id="btn-show-simplified" class="btn btn-sm">Simplified</button>
+                </div>
+            </div>
+
+            <div id="simplified-content" class="hidden">
+                <div id="simplified-text"></div>
+                <div id="simplified-bullets"></div>
+                <div id="simplified-glossary"></div>
+            </div>
+        </div>
+
+        <!-- Glossary Panel (sidebar) -->
+        <aside id="glossary-panel" class="hidden">
+            <h3>📚 Glossary</h3>
+            <ul id="glossary-list"></ul>
+        </aside>
+    </div>
+
+    <!-- Explain Tooltip (hidden by default) -->
+    <div id="explain-tooltip" class="tooltip hidden">
+        <div id="tooltip-content">
+            <div id="tooltip-loading" class="hidden">Explaining…</div>
+            <div id="tooltip-text"></div>
+            <div id="tooltip-example" class="hidden"></div>
+        </div>
+        <button id="tooltip-close" class="tooltip-close">×</button>
+    </div>
+
+    <!-- Explain pill (appears on text selection) -->
+    <button id="explain-pill" class="explain-pill hidden">💡 Explain</button>
+
+    <script type="module" src="reader.js"></script>
+</body>
+
+</html>
