@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dyslexia Reader — Settings</title>
+    <link rel="stylesheet" href="options.css">
+</head>
+
+<body>
+    <div class="options-container">
+        <header>
+            <h1>📖 Dyslexia Reader Settings</h1>
+        </header>
+
+        <section class="card">
+            <h2>🔑 API Configuration</h2>
+            <div class="field">
+                <label for="api-key">OpenRouter API Key</label>
+                <input type="password" id="api-key" placeholder="sk-or-…" autocomplete="off">
+                <small>Get a key at <a href="https://openrouter.ai/keys" target="_blank">openrouter.ai/keys</a></small>
+            </div>
+            <div class="field">
+                <label for="model">Model</label>
+                <input type="text" id="model" placeholder="openrouter/auto" value="openrouter/auto">
+                <small>Default: openrouter/auto (cheapest available). Or try google/gemini-2.0-flash-001</small>
+            </div>
+            <div class="field">
+                <label for="elevenlabs-key">ElevenLabs API Key (optional)</label>
+                <input type="password" id="elevenlabs-key" placeholder="Optional — for premium TTS" autocomplete="off">
+                <small>Free tier at <a href="https://elevenlabs.io" target="_blank">elevenlabs.io</a>. Not required —
+                    Web Speech API works without it.</small>
+            </div>
+            <div class="btn-row">
+                <button id="btn-test" class="btn btn-secondary">Test API Connection</button>
+                <span id="test-result" class="test-result"></span>
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>📐 Reader Defaults</h2>
+
+            <div class="field">
+                <label>Font Size: <span id="val-fontsize">18</span>px</label>
+                <input type="range" id="fontsize" min="12" max="32" step="1" value="18">
+            </div>
+
+            <div class="field">
+                <label>Line Spacing: <span id="val-linespacing">1.8</span></label>
+                <input type="range" id="linespacing" min="1.2" max="3.0" step="0.1" value="1.8">
+            </div>
+
+            <div class="field">
+                <label>Letter Spacing: <span id="val-letterspacing">0.05</span>em</label>
+                <input type="range" id="letterspacing" min="0" max="0.2" step="0.01" value="0.05">
+            </div>
+
+            <div class="field">
+                <label>Word Spacing: <span id="val-wordspacing">0.1</span>em</label>
+                <input type="range" id="wordspacing" min="0" max="0.5" step="0.05" value="0.1">
+            </div>
+
+            <div class="field">
+                <label>Margin Width: <span id="val-marginwidth">120</span>px</label>
+                <input type="range" id="marginwidth" min="20" max="300" step="10" value="120">
+            </div>
+
+            <div class="field">
+                <label>Theme</label>
+                <div class="theme-choices">
+                    <button class="theme-btn" data-theme="cream">🌾 Cream</button>
+                    <button class="theme-btn active" data-theme="cream">🌾 Cream</button>
+                    <button class="theme-btn" data-theme="gray">🌫️ Gray</button>
+                    <button class="theme-btn" data-theme="dark">🌙 Dark</button>
+                </div>
+            </div>
+
+            <div class="field">
+                <label class="toggle-row">
+                    <span>OpenDyslexic Font</span>
+                    <input type="checkbox" id="opendyslexic">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="field">
+                <label class="toggle-row">
+                    <span>Focus Highlight</span>
+                    <input type="checkbox" id="highlight-focus">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+
+            <div class="field">
+                <label>TTS Engine</label>
+                <select id="tts-engine">
+                    <option value="web">Web Speech API (free, always available)</option>
+                    <option value="elevenlabs">ElevenLabs (premium, requires API key)</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label>TTS Speed: <span id="val-ttsrate">1.0</span>x</label>
+                <input type="range" id="ttsrate" min="0.5" max="2.0" step="0.1" value="1.0">
+            </div>
+        </section>
+
+        <section class="card">
+            <h2>🗑️ Data</h2>
+            <button id="btn-clear" class="btn btn-danger">Clear All Cache</button>
+        </section>
+
+        <div class="btn-row bottom-actions">
+            <button id="btn-save" class="btn btn-primary">Save Settings</button>
+            <span id="save-result" class="test-result"></span>
+        </div>
+    </div>
+
+    <script type="module" src="options.js"></script>
+</body>
+
+</html>
