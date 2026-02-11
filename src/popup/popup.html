@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dyslexia Reading Assistant</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="popup-header">
+      <div class="logo-row">
+        <span class="logo-icon">📖</span>
+        <h1>Dyslexia Reader</h1>
+      </div>
+      <p id="status" class="status">Ready</p>
+    </header>
+
+    <main class="popup-body">
+      <button id="btn-reader" class="btn btn-primary">
+        <span class="btn-icon">✨</span>
+        Enable Reader Mode
+      </button>
+
+      <div class="divider"></div>
+
+      <div class="quick-settings">
+        <label class="toggle-row">
+          <span>OpenDyslexic Font</span>
+          <input type="checkbox" id="toggle-dyslexic">
+          <span class="toggle-slider"></span>
+        </label>
+
+        <label class="toggle-row">
+          <span>Focus Highlight</span>
+          <input type="checkbox" id="toggle-highlight">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="divider"></div>
+
+      <a id="link-options" class="link-row" href="#">
+        ⚙️ Settings & API Key
+      </a>
+    </main>
+  </div>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
