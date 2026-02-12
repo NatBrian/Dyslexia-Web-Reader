@@ -1,10 +1,9 @@
 /* ===================================================================
- * Vendored Mozilla Readability — lightweight port
- * Based on: https://github.com/nicolo-ribaudo/readability
- *
- * This is a simplified extraction engine. For production, replace with
- * the full @nicolo-ribaudo/readability package if desired.
+ * Content Extractor — using @mozilla/readability
+ * Plus custom pre-cleaning to remove ads and distractors.
  * =================================================================== */
+
+import { Readability } from '@mozilla/readability';
 
 export interface ReadabilityResult {
     title: string;
@@ -22,105 +21,173 @@ export function parseReadability(doc: Document): ReadabilityResult | null {
     try {
         const clone = doc.cloneNode(true) as Document;
 
-        // Remove noise elements
-        const noiseSelectors = [
-            'script', 'style', 'noscript', 'iframe', 'nav', 'footer',
-            'header', 'aside', '[role="banner"]', '[role="navigation"]',
-            '[role="complementary"]', '.sidebar', '.nav', '.footer',
-            '.header', '.ad', '.advertisement', '.social-share',
-            '.comments', '#comments', '.related-posts',
-        ];
-        noiseSelectors.forEach(sel => {
-            clone.querySelectorAll(sel).forEach(el => el.remove());
-        });
+        // Pre-clean the document before passing to Readability
+        cleanDistractors(clone);
 
-        // Find article element or best candidate
-        const article = findArticleContent(clone);
-        if (!article) return null;
+        // Usage: new Readability(doc).parse()
+        const reader = new Readability(clone);
+        const result = reader.parse();
 
-        const title = extractTitle(clone);
-        const byline = extractByline(clone);
+        if (!result) return null;
 
         return {
-            title,
-            byline,
-            content: article.innerHTML,
-            textContent: article.textContent?.trim() || '',
-            excerpt: (article.textContent?.trim() || '').slice(0, 200),
+            title: result.title || '',
+            byline: result.byline || null,
+            content: result.content || '',
+            textContent: result.textContent || '',
+            excerpt: result.excerpt || '',
         };
-    } catch {
+    } catch (err) {
+        console.error('Readability extraction failed:', err);
         return null;
     }
 }
 
-function extractTitle(doc: Document): string {
-    // Try Open Graph title first
-    const ogTitle = doc.querySelector('meta[property="og:title"]');
-    if (ogTitle) return ogTitle.getAttribute('content') || '';
+/**
+ * aggressively remove distractors that Readability might miss.
+ */
+function cleanDistractors(doc: Document): void {
+    // 1. Remove elements based on CSS selectors
+    const noiseSelectors = [
+        // Ads and banners
+        '.ad', '.ads', '.advertisement', '.banner', '.commercial',
+        '[id^="google_ads"]', '[id^="div-gpt-ad"]', '[class^="ad-"]',
+        '[id^="google-ads"]',
+        'div[aria-label="Advertisement"]',
 
-    // Try <h1>
-    const h1 = doc.querySelector('h1');
-    if (h1?.textContent) return h1.textContent.trim();
+        // Social / Share
+        '.social-share', '.share-buttons', '.social-links',
 
-    // Fallback to <title>
-    return doc.title || 'Untitled';
-}
+        // Comments
+        '.comments', '#comments', '.comment-section',
 
-function extractByline(doc: Document): string | null {
-    const selectors = [
-        '[rel="author"]', '.author', '.byline', '.post-author',
-        'meta[name="author"]',
+        // Related Content / "Also Read"
+        '.related-articles', '.read-more', '.also-read', '.related-posts',
+        '.recommended', '.outbrain', '.taboola', '.zergnet',
+
+        // Newsletter / Signups
+        '.newsletter', '.signup', '.subscription', '.subscribe-widget',
+
+        // Navigation / Footer (Readability usually handles these, but good to be sure)
+        'nav', 'footer', 'header', 'aside',
+        '[role="banner"]', '[role="navigation"]', '[role="complementary"]',
     ];
-    for (const sel of selectors) {
-        const el = doc.querySelector(sel);
-        if (el) {
-            const content = el.getAttribute('content') || el.textContent;
-            if (content?.trim()) return content.trim();
-        }
-    }
-    return null;
-}
 
-function findArticleContent(doc: Document): Element | null {
-    // Check semantic <article> elements
-    const articles = doc.querySelectorAll('article');
-    if (articles.length === 1) return articles[0];
-
-    // If multiple <article>, pick the longest one
-    if (articles.length > 1) {
-        let best: Element | null = null;
-        let bestLen = 0;
-        articles.forEach(a => {
-            const len = a.textContent?.length || 0;
-            if (len > bestLen) { bestLen = len; best = a; }
-        });
-        if (best && bestLen > 200) return best;
-    }
-
-    // Try role=main / main element
-    const main = doc.querySelector('main, [role="main"]');
-    if (main && (main.textContent?.length || 0) > 200) return main;
-
-    // Score-based: find element with the most <p> children with substantial text
-    const candidates = doc.querySelectorAll('div, section');
-    let bestCandidate: Element | null = null;
-    let bestScore = 0;
-
-    candidates.forEach(el => {
-        const paragraphs = el.querySelectorAll('p');
-        let score = 0;
-        paragraphs.forEach(p => {
-            const text = p.textContent?.trim() || '';
-            if (text.length > 40) score += text.length;
-        });
-        // Penalise deeply nested elements
-        let depth = 0;
-        let parent: Element | null = el;
-        while (parent) { depth++; parent = parent.parentElement; }
-        score -= depth * 10;
-
-        if (score > bestScore) { bestScore = score; bestCandidate = el; }
+    noiseSelectors.forEach(sel => {
+        doc.querySelectorAll(sel).forEach(el => el.remove());
     });
 
-    return bestCandidate;
+    // 2. Remove elements based on text content (Case-insensitive)
+    const textDistractors = [
+        'advertisement',
+        'sponsored',
+        'also read:',
+        'also read',
+        'read more:',
+        'sign up for our newsletters',
+        'subscribe to our',
+    ];
+
+    // Traverse all elements and check their text
+    // We target headers and small containers mostly
+    const candidates = doc.querySelectorAll('div, p, h1, h2, h3, h4, h5, h6, span, section, li');
+    candidates.forEach(el => {
+        // If element has many children, don't remove it just because it contains the text
+        // (unless it's a known container type like 'div' with specific text)
+        // We want to target leaf nodes or small wrapper nodes.
+        if (el.children.length > 5 && el.tagName === 'DIV') return;
+
+        const text = el.textContent?.trim().toLowerCase() || '';
+
+        // Check for exact matches or "starts with" for labels like "Also read:"
+        for (const distractor of textDistractors) {
+            if (text === distractor || (text.length < 50 && text.startsWith(distractor))) {
+                if (distractor.includes('also read')) {
+                    removeRelatedContentContainer(el);
+                } else {
+                    el.remove();
+                }
+                return; // Element removed, move to next
+            }
+        }
+    });
+}
+
+function removeRelatedContentContainer(el: Element): void {
+    // Walk up the tree to find the container of "Also read" section
+    // Heuristic: container should have links or list items
+    let parent = el.parentElement;
+    let limit = 3; // go up at most 3 levels
+
+    while (parent && limit > 0) {
+        const tag = parent.tagName;
+        // CRITICAL: Never remove the main content wrappers!
+        if (tag === 'ARTICLE' || tag === 'MAIN' || tag === 'BODY') {
+            break;
+        }
+
+        const cls = parent.className.toLowerCase();
+        if (cls.includes('related') || cls.includes('read') || cls.includes('more')) {
+            parent.remove();
+            return;
+        }
+
+        // Check if parent has multiple links or list items
+        const linkCount = parent.querySelectorAll('a').length;
+        const listCount = parent.querySelectorAll('ul, ol').length;
+
+        if (listCount > 0 || linkCount > 1) {
+            parent.remove();
+            return;
+        }
+
+        parent = parent.parentElement;
+        limit--;
+    }
+
+    // Fallback: If we couldn't find a safe wrapper to remove, we are likely inside the main article
+    // and the "Also read" is a header/paragraph followed by links.
+    // We should remove the label and the immediate following link-heavy elements.
+    removeNextSiblingsIfRelated(el);
+    el.remove();
+}
+
+function removeNextSiblingsIfRelated(el: Element): void {
+    let next = el.nextElementSibling;
+    let limit = 5; // Check next 5 siblings max
+
+    while (next && limit > 0) {
+        let shouldRemove = false;
+        const tag = next.tagName;
+        const textLen = next.textContent?.trim().length || 0;
+
+        // If it's a list, it's definitely related links
+        if (tag === 'UL' || tag === 'OL') {
+            shouldRemove = true;
+        }
+        // If it's a div with links
+        else if (tag === 'DIV' && next.querySelector('a')) {
+            shouldRemove = true;
+        }
+        // If it's a generic element with class "related" etc.
+        else if (next.className.toLowerCase().includes('related')) {
+            shouldRemove = true;
+        }
+
+        if (shouldRemove) {
+            const toRemove = next;
+            next = next.nextElementSibling; // move pointer before removing
+            toRemove.remove();
+            limit--;
+        } else {
+            // Stop if we hit a paragraph of text or header that looks like main content
+            if (tag === 'P' && textLen > 50) return;
+            if (tag === 'H2' || tag === 'H3') return;
+
+            // If we are unsure/it's a small element, maybe continue? 
+            // Better safe: stop.
+            next = next.nextElementSibling;
+            limit--;
+        }
+    }
 }

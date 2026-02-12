@@ -111,7 +111,7 @@ export interface ExtractArticleMsg { type: 'EXTRACT_ARTICLE' }
 export interface GetArticleMsg { type: 'GET_ARTICLE'; articleId: string }
 export interface GetSettingsMsg { type: 'GET_SETTINGS' }
 export interface SaveSettingsMsg { type: 'SAVE_SETTINGS'; settings: Partial<ReaderSettings> & { openRouterApiKey?: string; openRouterModel?: string } }
-export interface GenerateReadingPlanMsg { type: 'GENERATE_READING_PLAN'; articleId: string }
+export interface GenerateReadingPlanMsg { type: 'GENERATE_READING_PLAN'; articleId: string; forceRegenerate?: boolean }
 export interface GetReadingPlanMsg { type: 'GET_READING_PLAN'; articleId: string }
 export interface SimplifyChunkMsg { type: 'SIMPLIFY_CHUNK'; chunkId: string; chunkText: string; articleId: string }
 export interface ExplainSelectionMsg { type: 'EXPLAIN_SELECTION'; text: string }

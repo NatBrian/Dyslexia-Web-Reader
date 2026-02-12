@@ -105,20 +105,33 @@ onMessage(async (message: ExtMessage, sender): Promise<ExtResponse> => {
         // ── Reading plan ──────────────────────────────────────────────
         case 'GENERATE_READING_PLAN': {
             try {
-                // Check cache first
-                const cached = await storage.getCachedPlan(message.articleId);
-                if (cached) return { ok: true, data: cached };
+                const forceRegenerate = (message as any).forceRegenerate === true;
+                console.log(`[DRA:BG] GENERATE_READING_PLAN for ${message.articleId}, force=${forceRegenerate}`);
+
+                // Check cache first (unless force regenerate)
+                if (!forceRegenerate) {
+                    const cached = await storage.getCachedPlan(message.articleId);
+                    if (cached) {
+                        console.log(`[DRA:BG] Returning cached plan with ${cached.chunks.length} chunks`);
+                        return { ok: true, data: cached };
+                    }
+                }
 
                 const article = articleCache.get(message.articleId)
                     || await storage.getCachedArticle(message.articleId);
                 if (!article) return { ok: false, error: 'Article not found' };
 
+                console.log(`[DRA:BG] Article text length: ${article.text.length} chars`);
                 const { apiKey, model } = await storage.getApiConfig();
+                console.log(`[DRA:BG] API key present: ${!!apiKey}, model: ${model}`);
+
                 const plan = await generateReadingPlan(article.id, article.text, apiKey, model);
                 await storage.setCachedPlan(plan);
 
+                console.log(`[DRA:BG] Plan generated: ${plan.chunks.length} chunks`);
                 return { ok: true, data: plan };
             } catch (err: any) {
+                console.error('[DRA:BG] GENERATE_READING_PLAN error:', err);
                 return { ok: false, error: err?.message || 'Failed to generate reading plan' };
             }
         }
