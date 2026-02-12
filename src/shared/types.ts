@@ -28,6 +28,9 @@ export interface ReaderSettings {
     ttsEngine: 'web' | 'elevenlabs';
     ttsRate: number;            // 0.5–2.0, default 1.0
     elevenLabsApiKey?: string;
+    focusOnWords: boolean;       // Bionic reading with sentence coloring, default true
+    bionicAnchorCount: number;   // Bold first N letters of sentences, default 5
+    readingSpeed: number;        // words per second, default 2
 }
 
 export const DEFAULT_SETTINGS: ReaderSettings = {
@@ -42,6 +45,9 @@ export const DEFAULT_SETTINGS: ReaderSettings = {
     rulerMode: 'off',
     ttsEngine: 'web',
     ttsRate: 1.0,
+    focusOnWords: true,
+    bionicAnchorCount: 5,
+    readingSpeed: 2,
 };
 
 // ─── Reading Plan & Chunks ──────────────────────────────────────────

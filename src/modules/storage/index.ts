@@ -36,6 +36,9 @@ async function getDefaults(): Promise<ReaderSettings> {
         rulerMode: 'off',
         ttsEngine: 'web',
         ttsRate: 1.0,
+        focusOnWords: true,
+        bionicAnchorCount: 5,
+        readingSpeed: 2,
     };
 }
 

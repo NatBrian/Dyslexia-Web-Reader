@@ -7,12 +7,14 @@
  * - Guided reading mode (chunk navigation, simplify, explain)
  * - TTS playback
  * - Glossary panel
+ * - Focus on words (bionic reading with color coding)
  * =================================================================== */
 
 import { sendMessage } from '@modules/messaging';
 import { applyReaderStyles } from '@modules/readerStyle';
 import { initRuler, enableRuler, disableRuler, setRulerMode } from '@modules/readingRuler';
 import { speak, stop as ttsStop, pause as ttsPause, resume as ttsResume, isActive as ttsIsActive } from '@modules/tts';
+import { enableFocusOnWords, disableFocusOnWords, isFocusOnWordsEnabled, updateFocusSettings } from '@modules/focusOnWords';
 import type { Article, ReaderSettings, ReadingPlan, Chunk, SimplifiedChunk, GlossaryEntry, Explanation } from '@shared/types';
 
 // ─── DOM refs ───────────────────────────────────────────────────────
@@ -34,6 +36,9 @@ const ctlLetterSpacing = $('#ctl-letterspacing') as HTMLInputElement;
 const ctlMarginWidth = $('#ctl-marginwidth') as HTMLInputElement;
 const ctlTheme = $('#ctl-theme') as HTMLButtonElement;
 const ctlDyslexic = $('#ctl-dyslexic') as HTMLButtonElement;
+const ctlFocusWords = $('#ctl-focus-words') as HTMLButtonElement;
+const focusSpeedGroup = $('#focus-speed-group');
+const ctlFocusSpeed = $('#ctl-focus-speed') as HTMLInputElement;
 const ctlRuler = $('#ctl-ruler') as HTMLButtonElement;
 const ctlGuided = $('#ctl-guided') as HTMLButtonElement;
 
@@ -80,6 +85,7 @@ let readingPlan: ReadingPlan | null = null;
 let currentChunkIndex = 0;
 let simplifiedChunks = new Map<string, SimplifiedChunk>();
 let rulerActive = false;
+let focusWordsActive = false;
 let rulerMode: 'line' | 'paragraph' = 'paragraph';
 const themes: Array<ReaderSettings['theme']> = ['cream', 'gray', 'dark'];
 const themeIcons: Record<string, string> = { cream: '🌾', gray: '🌫️', dark: '🌙' };
@@ -100,7 +106,9 @@ async function init() {
     // Load settings
     try {
         const settingsResp = await sendMessage<any>({ type: 'GET_SETTINGS' });
-        settings = settingsResp.ok ? settingsResp.data : getDefaultSettings();
+        settings = settingsResp.ok
+            ? { ...getDefaultSettings(), ...settingsResp.data }
+            : getDefaultSettings();
     } catch {
         settings = getDefaultSettings();
     }
@@ -116,6 +124,9 @@ async function init() {
         }
         article = resp.data;
         renderArticle();
+        if (focusWordsActive) {
+            enableFocusOnWords(articleBody, settings);
+        }
         initRuler(articleBody);
         loadGlossary();
     } catch (err: any) {
@@ -128,6 +139,7 @@ function getDefaultSettings(): ReaderSettings {
         fontSize: 18, lineSpacing: 1.8, letterSpacing: 0.05, wordSpacing: 0.1,
         marginWidth: 120, theme: 'cream', openDyslexic: false, highlightFocus: false,
         rulerMode: 'off', ttsEngine: 'web', ttsRate: 1.0,
+        focusOnWords: true, bionicAnchorCount: 5, readingSpeed: 2,
     };
 }
 
@@ -162,12 +174,16 @@ function applySettings() {
     ctlLineSpacing.value = String(settings.lineSpacing);
     ctlLetterSpacing.value = String(settings.letterSpacing);
     ctlMarginWidth.value = String(settings.marginWidth);
+    ctlFocusSpeed.value = String(settings.readingSpeed);
 
     themeIndex = themes.indexOf(settings.theme);
     if (themeIndex === -1) themeIndex = 0;
     ctlTheme.textContent = themeIcons[settings.theme] || '🌾';
 
     ctlDyslexic.classList.toggle('active', settings.openDyslexic);
+    ctlFocusWords.classList.toggle('active', settings.focusOnWords);
+    focusWordsActive = settings.focusOnWords;
+    focusSpeedGroup.classList.toggle('hidden', !focusWordsActive);
 }
 
 function updateSetting(key: keyof ReaderSettings, value: any) {
@@ -195,6 +211,27 @@ ctlDyslexic.addEventListener('click', () => {
     settings.openDyslexic = !settings.openDyslexic;
     ctlDyslexic.classList.toggle('active', settings.openDyslexic);
     updateSetting('openDyslexic', settings.openDyslexic);
+});
+
+ctlFocusWords.addEventListener('click', () => {
+    focusWordsActive = !focusWordsActive;
+    ctlFocusWords.classList.toggle('active', focusWordsActive);
+    focusSpeedGroup.classList.toggle('hidden', !focusWordsActive);
+
+    if (focusWordsActive && articleBody) {
+        enableFocusOnWords(articleBody, settings);
+    } else {
+        disableFocusOnWords();
+    }
+
+    updateSetting('focusOnWords', focusWordsActive);
+});
+
+ctlFocusSpeed.addEventListener('input', () => {
+    const speed = Number(ctlFocusSpeed.value);
+    settings.readingSpeed = speed;
+    updateFocusSettings({ readingSpeed: speed });
+    updateSetting('readingSpeed', speed);
 });
 
 // ─── Reading Ruler ──────────────────────────────────────────────────

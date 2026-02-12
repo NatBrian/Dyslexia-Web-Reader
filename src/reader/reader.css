@@ -134,6 +134,26 @@ body {
     border-color: var(--dra-accent);
 }
 
+.focus-words-btn {
+    width: 40px;
+    font-size: 16px;
+    background: linear-gradient(135deg, #FFF8D6, #FFE083);
+    color: #6D4C00;
+    border-color: #D7B75F;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.focus-words-btn:hover {
+    background: linear-gradient(135deg, #FFF1B8, #FFD45E);
+    transform: translateY(-1px);
+}
+
+.focus-words-btn.active {
+    background: linear-gradient(135deg, #E0A000, #C98700);
+    border-color: #AA7300;
+    color: #FFF;
+}
+
 /* ─── Reader root ────────────────────────────────────────────────── */
 #reader-root {
     max-width: calc(100% - var(--dra-margin-width, 120px) * 2);
@@ -209,6 +229,36 @@ body {
 
 #article-body li {
     margin-bottom: 0.4em;
+}
+
+/* ─── Focus on Words (Bionic Reading) ────────────────────────────── */
+.focus-sentence {
+    display: inline;
+    transition: all 0.2s ease;
+    font-weight: inherit;
+}
+
+.focus-sentence-active {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+}
+
+/* Individual word styling */
+.focus-word {
+    display: inline;
+    transition: background-color 0.15s ease;
+    font-weight: inherit;
+}
+
+.focus-word b {
+    font-weight: 700;
+}
+
+/* Space between words */
+.focus-space {
+    display: inline;
+    transition: background-color 0.15s ease;
 }
 
 /* ─── States ─────────────────────────────────────────────────────── */
