@@ -23,6 +23,8 @@ const GLOBAL_COLORS = [
 
 interface Word {
     text: string;
+    appendSpace: boolean;
+    readingUnits: number;
 }
 
 const SUBSCRIPT_DIGITS: Record<string, string> = {
@@ -87,12 +89,19 @@ let focusState = {
     enabled: false,
     data: null as AllSentencesData | null,
     currentFocusSentence: null as Sentence | null,
-    wordProgressIntervals: new Map<string, number>(), // sentence id -> interval id
+    wordProgressTimers: new Map<string, number>(), // sentence id -> timeout id
     wordProgressIndex: new Map<string, number>(), // sentence id -> next word index
     readingSpeed: 2, // words per second
     bionicAnchorCount: 5, // bold letters per sentence
     isPaused: false, // Pause state
 };
+
+const HAN_CHAR_RE = /[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]/;
+const PURE_HAN_WORD_RE = /^[\u3400-\u4DBF\u4E00-\u9FFF\uF900-\uFAFF]+$/;
+const SENTENCE_ENDING_PUNCT_RE = /[.!?。！？]+$/u;
+const CJK_PUNCTUATION_RE = /[，。！？；：、,.!?;:]/;
+const LATIN_ALNUM_RE = /[A-Za-z0-9]/;
+const LATIN_CHARS_PER_UNIT = 3.5;
 
 // ─── Sentence Segmentation ──────────────────────────────────────────
 
@@ -100,7 +109,7 @@ let focusState = {
  * Split text into sentences
  */
 function segmentSentences(text: string): string[] {
-    const sentenceRegex = /[^.!?]*[.!?]+/g;
+    const sentenceRegex = /[^.!?。！？]*[.!?。！？]+/g;
     const sentences = text.match(sentenceRegex) || [text];
     return sentences.map(s => s.trim()).filter(s => s.length > 0);
 }
@@ -161,14 +170,75 @@ function escapeHtml(text: string): string {
  * Extract words from sentence
  */
 function extractWords(sentence: string): Word[] {
-    const wordTexts = sentence
-        .replace(/[.!?]+$/, '')
-        .split(/\s+/)
-        .filter(w => w.length > 0);
+    const normalized = sentence.replace(SENTENCE_ENDING_PUNCT_RE, '').trim();
+    if (!normalized) return [];
 
-    return wordTexts.map(text => ({
-        text: formatMathToken(text),
-    }));
+    const hasWhitespace = /\s/.test(normalized);
+    const hasHanChars = HAN_CHAR_RE.test(normalized);
+
+    // Chinese text often has no spaces; tokenize per character for smoother progress.
+    if (!hasWhitespace && hasHanChars) {
+        const chars = Array.from(normalized).filter(ch =>
+            ch.trim().length > 0 && !CJK_PUNCTUATION_RE.test(ch),
+        );
+
+        return chars.map(ch => {
+            const text = formatMathToken(ch);
+            return {
+                text,
+                appendSpace: false,
+                readingUnits: getReadingUnits(text),
+            };
+        });
+    }
+
+    const wordTexts = normalized.split(/\s+/).filter(w => w.length > 0);
+    const words: Word[] = [];
+
+    wordTexts.forEach((rawText, tokenIdx) => {
+        // For pure Chinese tokens, split into per-character units even in spaced text.
+        if (PURE_HAN_WORD_RE.test(rawText) && rawText.length > 1) {
+            const chars = Array.from(rawText);
+            chars.forEach((ch, charIdx) => {
+                const isLastChar = charIdx === chars.length - 1;
+                words.push({
+                    text: formatMathToken(ch),
+                    appendSpace: isLastChar && tokenIdx < wordTexts.length - 1,
+                    readingUnits: 1,
+                });
+            });
+            return;
+        }
+
+        const text = formatMathToken(rawText);
+        words.push({
+            text,
+            appendSpace: tokenIdx < wordTexts.length - 1,
+            readingUnits: getReadingUnits(text),
+        });
+    });
+
+    return words;
+}
+
+function getReadingUnits(text: string): number {
+    let hanCount = 0;
+    let latinLikeCount = 0;
+    for (const ch of Array.from(text)) {
+        if (HAN_CHAR_RE.test(ch)) {
+            // 1 Chinese character = 1 speed unit.
+            hanCount += 1;
+        } else if (LATIN_ALNUM_RE.test(ch)) {
+            latinLikeCount += 1;
+        } else if (ch.trim().length > 0) {
+            latinLikeCount += 1;
+        }
+    }
+
+    // Lower chars-per-unit makes English spend more time (slower) at the same slider value.
+    const latinUnits = latinLikeCount / LATIN_CHARS_PER_UNIT;
+    const totalUnits = hanCount + latinUnits;
+    return Math.max(0.5, totalUnits);
 }
 
 /**
@@ -237,8 +307,8 @@ function renderSentence(sentence: Sentence): string {
             }
             const wordSpan = `<span class="focus-word" data-word-index="${idx}" style="color: ${sentence.color};">${bionicHTML}</span>`;
             
-            // Add space after word (except last word)
-            if (idx < sentence.words.length - 1) {
+            // Preserve spacing behavior by language/tokenization mode.
+            if (word.appendSpace) {
                 return wordSpan + '<span class="focus-space"> </span>';
             }
             return wordSpan;
@@ -256,61 +326,67 @@ function renderSentence(sentence: Sentence): string {
  */
 function startReadingProgress(sentence: Sentence): void {
     // Clear previous progress for this sentence
-    if (focusState.wordProgressIntervals.has(sentence.id)) {
-        clearInterval(focusState.wordProgressIntervals.get(sentence.id)!);
+    if (focusState.wordProgressTimers.has(sentence.id)) {
+        clearTimeout(focusState.wordProgressTimers.get(sentence.id)!);
     }
 
-    const words = document.querySelectorAll(
+    const words = Array.from(document.querySelectorAll(
         `.focus-sentence[data-sentence-id="${sentence.id}"] .focus-word`,
-    );
-    const spaces = document.querySelectorAll(
-        `.focus-sentence[data-sentence-id="${sentence.id}"] .focus-space`,
-    );
+    )) as HTMLElement[];
 
     if (words.length === 0) return;
 
     let wordIndex = focusState.wordProgressIndex.get(sentence.id) ?? 0;
-    const timePerWord = (1 / focusState.readingSpeed) * 1000; // ms per word
+    const timePerUnit = (1 / focusState.readingSpeed) * 1000; // ms per letter-equivalent
 
-    const interval = window.setInterval(() => {
+    const step = () => {
         if (focusState.isPaused) {
-            // Don't advance on pause, but keep the interval running
+            const timerId = window.setTimeout(step, 120);
+            focusState.wordProgressTimers.set(sentence.id, timerId);
             return;
         }
 
         // Highlight current word and following space
         if (wordIndex < words.length) {
-            const word = words[wordIndex] as HTMLElement;
+            const word = words[wordIndex];
             // Fill with bright yellow background
             word.style.backgroundColor = '#FFEB3B';
             word.style.borderRadius = '3px';
 
-            // Also fill the space after this word (if not last)
-            if (wordIndex < spaces.length) {
-                const space = spaces[wordIndex] as HTMLElement;
-                space.style.backgroundColor = '#FFEB3B';
+            // Also fill the space after this word when present.
+            const nextEl = word.nextElementSibling as HTMLElement | null;
+            if (nextEl && nextEl.classList.contains('focus-space')) {
+                nextEl.style.backgroundColor = '#FFEB3B';
             }
 
+            const currentWord = sentence.words[wordIndex];
             wordIndex++;
             focusState.wordProgressIndex.set(sentence.id, wordIndex);
-        } else {
-            // Animation complete
-            clearInterval(interval);
-            focusState.wordProgressIntervals.delete(sentence.id);
-        }
-    }, timePerWord);
 
-    focusState.wordProgressIntervals.set(sentence.id, interval);
+            const durationMs = Math.max(
+                60,
+                Math.round((currentWord?.readingUnits ?? 1) * timePerUnit),
+            );
+            const timerId = window.setTimeout(step, durationMs);
+            focusState.wordProgressTimers.set(sentence.id, timerId);
+            return;
+        }
+
+        // Animation complete
+        focusState.wordProgressTimers.delete(sentence.id);
+    };
+
+    step();
 }
 
 /**
  * Stop all word progress animations
  */
 function stopAllProgress(): void {
-    focusState.wordProgressIntervals.forEach(intervalId => {
-        clearInterval(intervalId);
+    focusState.wordProgressTimers.forEach(timerId => {
+        clearTimeout(timerId);
     });
-    focusState.wordProgressIntervals.clear();
+    focusState.wordProgressTimers.clear();
 }
 
 /**
