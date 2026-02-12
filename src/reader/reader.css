@@ -247,18 +247,46 @@ body {
 /* Individual word styling */
 .focus-word {
     display: inline;
-    transition: background-color 0.15s ease;
     font-weight: inherit;
+    border-radius: 0;
 }
 
 .focus-word b {
     font-weight: 700;
 }
 
+.focus-word-progress {
+    background-image: linear-gradient(
+        90deg,
+        #FFEB3B 0%,
+        #FFEB3B var(--focus-progress, 0%),
+        transparent var(--focus-progress, 0%),
+        transparent 100%
+    );
+}
+
+.focus-word-complete {
+    background-color: #FFEB3B;
+}
+
 /* Space between words */
 .focus-space {
     display: inline;
-    transition: background-color 0.15s ease;
+    border-radius: 0;
+}
+
+.focus-space-complete {
+    background-color: #FFEB3B;
+}
+
+.focus-progress-start {
+    border-top-left-radius: 999px;
+    border-bottom-left-radius: 999px;
+}
+
+.focus-progress-end {
+    border-top-right-radius: 999px;
+    border-bottom-right-radius: 999px;
 }
 
 /* ─── States ─────────────────────────────────────────────────────── */

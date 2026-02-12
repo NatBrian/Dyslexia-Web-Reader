@@ -13,7 +13,7 @@
 <body>
     <div id="toolbar" class="toolbar">
         <div class="toolbar-left">
-            <span class="toolbar-logo">📖 Reader</span>
+            <span class="toolbar-logo">&#x1F4D6; Reader</span>
         </div>
         <div class="toolbar-center">
             <div class="toolbar-group" title="Font Size">
@@ -21,31 +21,31 @@
                 <input type="range" id="ctl-fontsize" min="12" max="32" step="1" value="18">
             </div>
             <div class="toolbar-group" title="Line Spacing">
-                <label>↕</label>
+                <label>&#8597;</label>
                 <input type="range" id="ctl-linespacing" min="1.2" max="3.0" step="0.1" value="1.8">
             </div>
             <div class="toolbar-group" title="Letter Spacing">
-                <label>A·B</label>
+                <label>A&middot;B</label>
                 <input type="range" id="ctl-letterspacing" min="0" max="0.2" step="0.01" value="0.05">
             </div>
             <div class="toolbar-group" title="Line Width">
-                <label>⇔</label>
+                <label>&#8660;</label>
                 <input type="range" id="ctl-marginwidth" min="20" max="400" step="10" value="120">
             </div>
-            <button id="ctl-theme" class="toolbar-btn" title="Toggle Theme">🌾</button>
+            <button id="ctl-theme" class="toolbar-btn" title="Toggle Theme">&#x1F33E;</button>
             <button id="ctl-dyslexic" class="toolbar-btn" title="OpenDyslexic Font">Dy</button>
-            <button id="ctl-focus-words" class="toolbar-btn focus-words-btn" title="Focus on Words (bionic reading with color coding)">🎯</button>
-            <div id="focus-speed-group" class="toolbar-group hidden" title="Focus Progress Speed">
+            <button id="ctl-focus-words" class="toolbar-btn focus-words-btn" title="Word Focus (bionic reading with color coding)">&#x1F3AF;</button>
+            <div id="focus-speed-group" class="toolbar-group hidden" title="Focus Speed">
                 <label>Speed</label>
                 <input type="range" id="ctl-focus-speed" min="0.5" max="8" step="0.1" value="2">
             </div>
-            <button id="ctl-ruler" class="toolbar-btn" title="Reading Ruler (J/K to navigate, Esc off)">📏</button>
-            <button id="ctl-guided" class="toolbar-btn" title="Guided Reading Mode">📑</button>
+            <button id="ctl-ruler" class="toolbar-btn" title="Reading Ruler (J/K to navigate, Esc off)">&#x1F4CF;</button>
+            <button id="ctl-guided" class="toolbar-btn" title="Guided Reading Mode">&#x1F4D1;</button>
         </div>
         <div class="toolbar-right">
-            <button id="ctl-tts-play" class="toolbar-btn" title="Read Aloud">▶️</button>
-            <button id="ctl-tts-pause" class="toolbar-btn hidden" title="Pause">⏸️</button>
-            <button id="ctl-tts-stop" class="toolbar-btn hidden" title="Stop">⏹️</button>
+            <button id="ctl-tts-play" class="toolbar-btn" title="Read Aloud">&#x25B6;&#xFE0F;</button>
+            <button id="ctl-tts-pause" class="toolbar-btn hidden" title="Pause">&#x23F8;&#xFE0F;</button>
+            <button id="ctl-tts-stop" class="toolbar-btn hidden" title="Stop">&#x23F9;&#xFE0F;</button>
         </div>
     </div>
 
@@ -56,7 +56,7 @@
         </div>
 
         <div id="error" class="state-msg hidden">
-            <p class="error-icon">⚠️</p>
+            <p class="error-icon">&#x26A0;&#xFE0F;</p>
             <p id="error-text">Something went wrong.</p>
         </div>
 
@@ -72,9 +72,9 @@
             <div class="guided-header">
                 <span id="guided-progress">Chunk 1 / 1</span>
                 <div class="guided-controls">
-                    <button id="guided-prev" class="btn btn-sm" disabled>← Prev</button>
-                    <button id="guided-next" class="btn btn-sm">Next →</button>
-                    <button id="guided-regen" class="btn btn-sm" title="Force regenerate reading plan">🔄</button>
+                    <button id="guided-prev" class="btn btn-sm" disabled>&#8592; Prev</button>
+                    <button id="guided-next" class="btn btn-sm">Next &#8594;</button>
+                    <button id="guided-regen" class="btn btn-sm" title="Force regenerate reading plan">&#x1F504;</button>
                 </div>
             </div>
 
@@ -110,10 +110,10 @@
             <div id="tooltip-text"></div>
             <div id="tooltip-example" class="hidden"></div>
         </div>
-        <button id="tooltip-close" class="tooltip-close">×</button>
+        <button id="tooltip-close" class="tooltip-close">&times;</button>
     </div>
 
-    <button id="explain-pill" class="explain-pill hidden">💡 Explain</button>
+    <button id="explain-pill" class="explain-pill hidden">&#x1F4A1; Explain</button>
 
     <script type="module" src="reader.js"></script>
 </body>
