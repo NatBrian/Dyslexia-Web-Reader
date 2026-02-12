@@ -89,7 +89,9 @@ let focusState = {
     enabled: false,
     data: null as AllSentencesData | null,
     currentFocusSentence: null as Sentence | null,
-    wordProgressTimers: new Map<string, number>(), // sentence id -> timeout id
+    wordProgressRafs: new Map<string, number>(), // sentence id -> requestAnimationFrame id
+    wordProgressEndEl: new Map<string, HTMLElement>(), // sentence id -> current right cap element
+    progressRunToken: 0,
     wordProgressIndex: new Map<string, number>(), // sentence id -> next word index
     readingSpeed: 2, // words per second
     bionicAnchorCount: 5, // bold letters per sentence
@@ -322,71 +324,148 @@ function renderSentence(sentence: Sentence): string {
 
 /**
  * Start word-by-word progress animation for a sentence.
- * Words get highlighted as they are read.
+ * Each word fills from left to right based on its duration.
  */
 function startReadingProgress(sentence: Sentence): void {
-    // Clear previous progress for this sentence
-    if (focusState.wordProgressTimers.has(sentence.id)) {
-        clearTimeout(focusState.wordProgressTimers.get(sentence.id)!);
-    }
-
     const words = Array.from(document.querySelectorAll(
         `.focus-sentence[data-sentence-id="${sentence.id}"] .focus-word`,
     )) as HTMLElement[];
 
     if (words.length === 0) return;
 
+    stopSentenceProgress(sentence.id);
+    const runToken = ++focusState.progressRunToken;
     let wordIndex = focusState.wordProgressIndex.get(sentence.id) ?? 0;
     const timePerUnit = (1 / focusState.readingSpeed) * 1000; // ms per letter-equivalent
 
-    const step = () => {
-        if (focusState.isPaused) {
-            const timerId = window.setTimeout(step, 120);
-            focusState.wordProgressTimers.set(sentence.id, timerId);
-            return;
-        }
+    const run = async () => {
+        while (wordIndex < words.length) {
+            if (!isSentenceRunActive(sentence.id, runToken)) break;
 
-        // Highlight current word and following space
-        if (wordIndex < words.length) {
-            const word = words[wordIndex];
-            // Fill with bright yellow background
-            word.style.backgroundColor = '#FFEB3B';
-            word.style.borderRadius = '3px';
-
-            // Also fill the space after this word when present.
-            const nextEl = word.nextElementSibling as HTMLElement | null;
-            if (nextEl && nextEl.classList.contains('focus-space')) {
-                nextEl.style.backgroundColor = '#FFEB3B';
+            const wordEl = words[wordIndex];
+            if (wordIndex === 0) {
+                wordEl.classList.add('focus-progress-start');
             }
-
+            setSentenceProgressEnd(sentence.id, wordEl);
             const currentWord = sentence.words[wordIndex];
-            wordIndex++;
-            focusState.wordProgressIndex.set(sentence.id, wordIndex);
-
             const durationMs = Math.max(
-                60,
+                80,
                 Math.round((currentWord?.readingUnits ?? 1) * timePerUnit),
             );
-            const timerId = window.setTimeout(step, durationMs);
-            focusState.wordProgressTimers.set(sentence.id, timerId);
-            return;
+
+            const completed = await animateWordFill(sentence.id, runToken, wordEl, durationMs);
+            if (!completed) break;
+
+            wordEl.classList.remove('focus-word-progress');
+            wordEl.classList.add('focus-word-complete');
+            wordEl.style.removeProperty('--focus-progress');
+
+            const nextEl = wordEl.nextElementSibling as HTMLElement | null;
+            if (nextEl && nextEl.classList.contains('focus-space')) {
+                nextEl.classList.add('focus-space-complete');
+                setSentenceProgressEnd(sentence.id, nextEl);
+            } else {
+                setSentenceProgressEnd(sentence.id, wordEl);
+            }
+
+            wordIndex++;
+            focusState.wordProgressIndex.set(sentence.id, wordIndex);
         }
 
-        // Animation complete
-        focusState.wordProgressTimers.delete(sentence.id);
+        if (isSentenceRunActive(sentence.id, runToken)) {
+            focusState.wordProgressRafs.delete(sentence.id);
+        }
     };
 
-    step();
+    void run();
 }
 
 /**
  * Stop all word progress animations
  */
 function stopAllProgress(): void {
-    focusState.wordProgressTimers.forEach(timerId => {
-        clearTimeout(timerId);
+    focusState.progressRunToken++;
+    focusState.wordProgressRafs.forEach(rafId => {
+        cancelAnimationFrame(rafId);
     });
-    focusState.wordProgressTimers.clear();
+    focusState.wordProgressRafs.clear();
+}
+
+function stopSentenceProgress(sentenceId: string): void {
+    const rafId = focusState.wordProgressRafs.get(sentenceId);
+    if (rafId) {
+        cancelAnimationFrame(rafId);
+        focusState.wordProgressRafs.delete(sentenceId);
+    }
+}
+
+function setSentenceProgressEnd(sentenceId: string, el: HTMLElement): void {
+    const prev = focusState.wordProgressEndEl.get(sentenceId);
+    if (prev && prev !== el) {
+        prev.classList.remove('focus-progress-end');
+    }
+    el.classList.add('focus-progress-end');
+    focusState.wordProgressEndEl.set(sentenceId, el);
+}
+
+function isSentenceRunActive(sentenceId: string, runToken: number): boolean {
+    return (
+        focusState.enabled &&
+        focusState.progressRunToken === runToken &&
+        focusState.currentFocusSentence?.id === sentenceId
+    );
+}
+
+function animateWordFill(
+    sentenceId: string,
+    runToken: number,
+    wordEl: HTMLElement,
+    durationMs: number,
+): Promise<boolean> {
+    wordEl.classList.add('focus-word-progress');
+    wordEl.style.setProperty('--focus-progress', '0%');
+
+    return new Promise(resolve => {
+        let startedAt = 0;
+        let pauseStartedAt = 0;
+        let pausedMs = 0;
+
+        const frame = (ts: number) => {
+            if (!isSentenceRunActive(sentenceId, runToken)) {
+                resolve(false);
+                return;
+            }
+
+            if (focusState.isPaused) {
+                if (!pauseStartedAt) pauseStartedAt = ts;
+                const rafId = requestAnimationFrame(frame);
+                focusState.wordProgressRafs.set(sentenceId, rafId);
+                return;
+            }
+
+            if (pauseStartedAt) {
+                pausedMs += ts - pauseStartedAt;
+                pauseStartedAt = 0;
+            }
+
+            if (!startedAt) startedAt = ts;
+
+            const elapsed = ts - startedAt - pausedMs;
+            const progress = Math.min(1, elapsed / durationMs);
+            wordEl.style.setProperty('--focus-progress', `${(progress * 100).toFixed(2)}%`);
+
+            if (progress >= 1) {
+                resolve(true);
+                return;
+            }
+
+            const rafId = requestAnimationFrame(frame);
+            focusState.wordProgressRafs.set(sentenceId, rafId);
+        };
+
+        const rafId = requestAnimationFrame(frame);
+        focusState.wordProgressRafs.set(sentenceId, rafId);
+    });
 }
 
 /**
@@ -401,13 +480,19 @@ function clearSentenceProgress(sentence: Sentence): void {
     );
 
     words.forEach(w => {
-        (w as HTMLElement).style.backgroundColor = '';
-        (w as HTMLElement).style.borderRadius = '';
+        (w as HTMLElement).classList.remove(
+            'focus-word-progress',
+            'focus-word-complete',
+            'focus-progress-start',
+            'focus-progress-end',
+        );
+        (w as HTMLElement).style.removeProperty('--focus-progress');
     });
 
     spaces.forEach(s => {
-        (s as HTMLElement).style.backgroundColor = '';
+        (s as HTMLElement).classList.remove('focus-space-complete', 'focus-progress-end');
     });
+    focusState.wordProgressEndEl.delete(sentence.id);
     focusState.wordProgressIndex.delete(sentence.id);
 }
 
@@ -637,6 +722,7 @@ export function disableFocusOnWords(): void {
     focusState.currentFocusSentence = null;
     focusState.isPaused = false;
     focusState.wordProgressIndex.clear();
+    focusState.wordProgressEndEl.clear();
 
     // Remove keyboard listener
     document.removeEventListener('keydown', handleKeyboardNavigation);
